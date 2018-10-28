@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+
+unless ARGV.size == 1
+  STDERR.puts "Usage: #{$0} flag"
+  exit 1
+end
+
+free_pins = [*1025...4096].shuffle
+
+input = ARGV[0].unpack("b*")[0]
+input_pins = (0...512).map{|i| input[i] == "1"}
+
+gates = []
+positive_conds = []
+
+# Just negate everything and setup base conds
+512.times do |i_pin|
+  neg_i_pin = free_pins.shift
+  gates << [neg_i_pin, i_pin, i_pin]
+  if input_pins[i_pin]
+    positive_conds << i_pin
+  else
+    positive_conds << neg_i_pin
+  end
+end
+
+while positive_conds.size > 2
+  positive_conds.shuffle!
+  a, b = positive_conds.shift(2)
+  neg_ab_pin = free_pins.shift
+  ab_pin = free_pins.shift
+  gates << [neg_ab_pin, a,  b]
+  gates << [ab_pin, neg_ab_pin, neg_ab_pin]
+  positive_conds << ab_pin
+end
+
+a, b = positive_conds.shift(2)
+neg_ab_pin = free_pins.shift
+gates << [neg_ab_pin, a,  b]
+gates << [1024, neg_ab_pin, neg_ab_pin]
+
+# Connect free pins to chaff
+free_pins.each do |pin|
+  gates << [pin, rand(4096), rand(4096)]
+end
+
+open("gates.txt", "w") do |fh|
+  gates.shuffle.each do |row|
+    fh.puts row.join(" ")
+  end
+end

@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+
+def generate_code(key)
+  sz = key.size
+  output = ""
+
+  checks = []
+
+  key.unpack("n*").each_with_index do |c, i|
+    checks << (
+      "    if struct.unpack_from('>H', key, #{i*2})[0] != #{c}:\n"+
+      "        return False\n"
+    )
+  end
+
+  output << %Q[#!/usr/bin/env python\n]
+  output << %Q[\n]
+  output << %Q[import sys\n]
+  output << %Q[import struct\n]
+  output << %Q[\n]
+  output << %Q[def validate(key):\n]
+  output << %Q[    if len(key) != #{sz}:\n]
+  output << %Q[        return False\n]
+  output += checks.shuffle.join
+  output << %Q[    return True\n]
+  output << %Q[\n]
+  output << %Q[if len(sys.argv) != 2:\n]
+  output << %Q[    print("Please specify password to test as argument")\n]
+  output << %Q[elif validate(bytearray(sys.argv[1], 'utf-8')):\n]
+  output << %Q[    print("Correct password")\n]
+  output << %Q[else:\n]
+  output << %Q[    print("Incorrect password")\n]
+end
+
+unless ARGV.size == 1
+  STDERR.puts "Usage: #{$0} flag"
+  exit 1
+end
+
+flag = ARGV[0]
+raise unless ARGV[0].size.even?
+
+puts generate_code(flag)

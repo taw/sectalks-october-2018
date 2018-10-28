@@ -1,0 +1,61 @@
+#!/usr/bin/env ruby
+
+require "csv"
+require "pathname"
+
+class GenerateChallenge
+  def initialize(flag)
+    @flag = flag
+  end
+
+  def tweets
+    @tweets ||= begin
+      tweets_path = Pathname(__dir__) + "Donald-Tweets.csv"
+      tweets_data = CSV.parse(tweets_path.read)
+      all_tweets = tweets_data[1..-1].map{|x| x[2] }
+      ascii_tweets = all_tweets.select{|x| x =~ /\A[\000-\177]+\z/ and x !~ /\n/ }
+      [ARGV[0], *ascii_tweets].shuffle
+    end
+  end
+
+  def emoji
+    @emoji ||= Pathname("emoji.txt").readlines.map(&:chomp)
+  end
+
+  def unique_chars
+    @unique_chars ||= tweets.join.chars.group_by(&:itself).transform_values(&:size)
+  end
+
+  def key
+    @key ||= unique_chars.keys.sort.zip(emoji.shuffle)
+  end
+
+  def save_key
+    Pathname("key.txt").write( key.map{|ab| ab.join("\t") + "\n" }.join )
+  end
+
+  def encrypt(tweet)
+    tweet.gsub(/(.)/, key.to_h)
+  end
+
+  def save_tweets
+    root = Pathname("encrypted_tweets")
+    root.mkpath
+    tweets.each_with_index do |tweet, i|
+      file_name = "tweet-%04d.txt" % (i+1)
+      (root + file_name).write(encrypt(tweet))
+    end
+  end
+
+  def call
+    save_key
+    save_tweets
+  end
+end
+
+unless ARGV.size == 1
+  STDERR.puts "Usage: #{$0} flag"
+  exit 1
+end
+
+GenerateChallenge.new(ARGV[0]).call

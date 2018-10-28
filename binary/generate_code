@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+
+unless ARGV.size == 1
+  STDERR.puts "Usage: #{$0} flag"
+  exit 1
+end
+
+flag = ARGV[0]
+
+raise unless flag.size <= 128
+
+arys = []
+
+15.times do
+  arys << 128.times.map{ rand(256) }
+end
+
+final = flag.bytes
+final += [0] * (128 - final.size)
+128.times do |i|
+  final[i] ^= arys.map{|a| a[i]}.inject{|u,v| u^v}
+end
+arys << final
+
+code = %Q[
+#include <stdlib.h>
+#include <stdio.h>
+
+char tables[16*128] = {
+  #{arys.flatten.join(", ")}
+};
+
+int validate(char *password) {
+  char buf[128];
+  for(int i=0; i<128; i++) {
+    buf[i] = 0;
+  }
+  for(int i=0; i<128; i++) {
+    buf[i] = password[i];
+    if(!password[i]) break;
+  }
+  for(int i=0; i<128*16; i++) {
+    buf[i % 128] ^= tables[i];
+  }
+  int sum = 0;
+  for(int i=0; i<128; i++) {
+    sum += buf[i];
+  }
+  return sum == 0;
+}
+
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    printf("Please enter password to check\\n");
+    return 1;
+  } else if (validate(argv[1])) {
+    printf("Password correct\\n");
+    return 1;
+  } else {
+    printf("Password incorrect\\n");
+    return 1;
+  }
+
+  return 0;
+}
+]
+
+open("validator.c", "w") do |fh|
+  fh.puts code
+end

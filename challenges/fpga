@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+class FPGAEmulator
+  attr_reader :nodes
+
+  def initialize(size, nand_gates, inputs)
+    @nodes = (0...size).map{ false }
+    @nand_gates = nand_gates
+    @inputs = inputs
+  end
+
+  def emulate(iterations)
+    iterations.times do
+      @inputs.each_with_index do |input, i|
+        @nodes[i] = input
+      end
+
+      @nand_gates.each do |out, in1, in2|
+        @nodes[out] = !(@nodes[in1] && @nodes[in2])
+      end
+    end
+  end
+end
+
+unless ARGV.size == 2
+  puts "Usage: #{$0} gates.txt input"
+  exit 1
+end
+
+nand_gates = open(ARGV[0]).readlines.map{|row| row.split.map(&:to_i)}
+input = ARGV[1].unpack("b*")[0]
+
+unless input.size <= 64*8
+  puts "Input too long. FPGA does not have that many input pins"
+  exit 1
+end
+
+input_pins = (0...512).map{|i| input[i] == "1"}
+
+fpga = FPGAEmulator.new(4096, nand_gates, input_pins)
+fpga.emulate(256)
+
+if fpga.nodes[1024]
+  puts "Correct input"
+else
+  puts "Incorrect input"
+end

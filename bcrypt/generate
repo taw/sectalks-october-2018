@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+require "bcrypt"
+
+unless ARGV.size == 1
+  STDERR.puts "Usage: #{$0} flag"
+  exit 1
+end
+
+flag = ARGV[0]
+
+flag.each_char do |c|
+  puts BCrypt::Password.create(c)
+end
